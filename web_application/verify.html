@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width">
+     
+        <link rel="stylesheet" href="css/font.css">
+        <link rel="stylesheet" href="css/normalize.css">
+        <link rel="stylesheet" href="css/index.css">
+    </head>
+    <body>
+       
+        <header>
+            <h1>Bid Machine</h1>
+        </header>
+
+
+        <section class="form-wrap">
+            <h1>Verify Email</h1>
+            <form id="verifyForm">
+              <input type="email" id="emailInputVerify" placeholder="Email" required>
+              <input type="text" id="codeInputVerify" placeholder="Verification Code" pattern=".*" required>
+
+              <input type="submit" value="Verify">
+            </form>
+        </section>
+
+
+        <script src="js/aws-cognito/aws-cognito-sdk.min.js"></script>
+        <script src="js/aws-cognito/amazon-cognito-identity.min.js"></script>
+        <script src="js/config.js"></script>
+        <script src="js/cognito-auth.js"></script>
+    </body>
+</html>
