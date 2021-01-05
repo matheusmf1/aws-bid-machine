@@ -2,7 +2,9 @@ var BidMachine = window.BidMachine || {};
 
 ( () => { 
 
-    var signinUrl = '/index.html';
+    const signinUrl = '/index.html';
+    const homeUrl = 'html/home.html';
+    const verifyUrl = 'html/verify.html';
 
     const poolData = {
         UserPoolId: _config.cognito.userPoolId,
@@ -116,8 +118,7 @@ var BidMachine = window.BidMachine || {};
             signin( email, password, () => {
     
                 console.log('Successfully Logged In');
-                alert( 'Login Successfully' )
-                window.location.href = 'home.html';
+                window.location.href = homeUrl;
             },
             ( err ) => { alert(err); }
             );
@@ -142,7 +143,7 @@ var BidMachine = window.BidMachine || {};
                 var cognitoUser = result.user;
                 console.log('user name is ' + cognitoUser.getUsername());
                 alert('Registration successful. Please check your email for your verification code');
-                window.location.href = './verify.html';
+                window.location.href = verifyUrl;
             };
     
             const onFailure = (err) => { alert(err); };

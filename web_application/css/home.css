@@ -1,0 +1,287 @@
+*{
+  margin:0;
+  padding: 0;
+}
+
+
+html {
+  height: 100vh;
+}
+
+body {
+  height: inherit;
+  display: grid;
+
+  font-family: Arial, Helvetica, sans-serif;
+
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: max-content auto max-content;
+  grid-template-areas: 
+  "header header header"
+  "main main main"
+  "footer footer footer"
+}
+
+header {
+  grid-area: header;
+}
+
+main {
+  grid-area: main;
+}
+
+footer {
+  grid-area: footer;
+}
+
+
+:root {
+  --highlight-color: #2b5680;
+}
+  
+
+
+
+/* CONTENT AREA */
+
+#container{
+  width: 960px;
+  margin: 0 auto;
+  padding: 20px 0 0 0;
+  font: 16px Arial,sans-serif;
+}
+
+.msg_container{
+  height: 5vh;
+}
+
+.errors{
+  text-align: center;
+  padding: 5px;
+  width:400px;
+  border: 1px solid #FF3030;
+  margin: 0 auto;
+  color: #FF3030;
+}
+
+.sucess{
+  text-align: center;
+  padding: 5px;
+  width:400px;
+  border: 1px solid #44c767;
+  margin: 0 auto;
+  color: #44c767;
+}
+
+
+#container h1{
+  text-align: center;
+  width: 960;
+  height: 40px;
+  font: 32px arial;
+}
+
+#container h1 + p{
+  padding: 10px 0 0 0 ;
+  text-align: center;
+  width: 50;
+  height: 40px;
+}
+
+#newContact{
+  width: 960px;
+  height:106px;
+  border: 1px solid #ddd;
+  margin: 0 auto;
+}
+
+#newContact > p{
+  padding: 8px 10px 10px 10px;
+  width: 940px;
+  height: 16px;
+  background: var( --highlight-color );
+  font: 18px sans-serif;
+  color:#fff;
+}
+
+/* Border p */
+#newContact > p, #list p{
+  -webkit-border-top-left-radius: 20px;
+  -webkit-border-top-right-radius: 20px;
+  -moz-border-radius-topleft: 20px;
+  -moz-border-radius-topright: 20px;
+  -ms-border-radius-topright: 20px;
+  -o-border-radius:20px;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+}
+
+/* border div */
+#newContact input[type=text], #newContact, #list{
+-webkit-border-radius:20px;
+  -moz-border-radius:20px;
+  -o-border-radius:20px;
+  -ms-border-radius:20px;
+  border-radius:20px;
+}
+
+#newContact input[type=text]{
+  border:1px solid #ccc;
+  font:14px arial;
+  width:200px;
+  min-height:30px;
+  display:block;
+  margin-bottom:15px;
+  margin-top:5px;
+  outline: none;
+  float:left;
+  padding: 0 0 0 8px;
+  margin: 20px 0 0 8px;
+}
+
+#newContact input[type=button]{
+  width: 110px;
+  height: 32px;
+  position: relative;
+  bottom: -20px;
+  right: -10px;   
+  cursor: pointer;
+}
+
+.cadastrar {
+  background-color:#44c767;
+  -moz-border-radius:27px;
+  -webkit-border-radius:27px;
+  border-radius:27px;
+  border:1px solid #18ab29;
+  cursor:pointer;
+  color:#ffffff;
+  font-size:14px;
+  text-decoration:none;   
+}
+
+.cadastrar:hover {
+  background-color:#48bd67;
+}
+
+#container #newContact{
+  margin-bottom: 20px;
+}
+
+#list{
+  margin: 0 auto;
+  width: 960px;
+  height:auto;
+  border: 1px solid #ddd;
+  padding:0 0 5px 0;
+}
+
+#list p{
+  padding: 8px 10px 8px 10px;
+  width: 940px;
+  background: var( --highlight-color );
+  font: 18px sans-serif;
+  color:#fff;
+}
+
+#titulo{
+  width: 600px;
+  height: 44px;
+}
+
+.acoes{
+  float:left;
+  list-style: none;
+  padding: 14px 50px 0 16px; 
+  font: bold 16px sans-serif;
+  color:#4F4F4F;
+}
+
+.btnAction{
+  width: 60px;
+  list-style: none;
+  height: 22px;
+  padding: 4px 0 0 0;
+  float:left;
+  padding: 0 0 0 20px;
+}
+
+.btnAction input[type='button']{
+  width: 20px;
+  height: 20px;
+  padding: 0px 0 0 0;
+  float:left;
+}
+
+.edit{
+  float:left;
+  cursor:pointer;
+  border:none;
+  background:  url('https://leo386386.files.wordpress.com/2014/07/edit.jpg?w=687') no-repeat transparent;
+}
+
+.del{
+  float:left;
+  cursor:pointer;
+  border:none;
+  background: url('https://leo386386.files.wordpress.com/2014/07/delete.jpg?w=300&h=300') no-repeat transparent;
+}
+
+.titulo{
+  float:left;
+  list-style: none;
+  padding: 14px 160px 0 12px; 
+  font: bold 16px sans-serif;
+  color:#4F4F4F;
+}
+
+.allData{
+  width: 600px;
+  height: 26px;
+  list-style: none;
+}
+
+.allData li:first-child{
+  width: 190px;
+  padding: 0px 10px 0px 24px;
+}
+
+.dados{
+  width: 200px;
+  height: 26px;
+  list-style: none;
+  padding: 0px 10px 0px 24px;
+  float:left;
+  font:  14px sans-serif;
+  color:#4F4F4F;
+}
+
+
+/* Buttons  */
+
+.button-login {
+  width: 200px;
+  background-color: white;
+  color: #f50856;
+  padding: 14px 20px;
+  margin: 8px auto 30px;
+  /* border: none; */
+  border-color: grey;
+  border-radius: 40px;
+  cursor: pointer;
+  display: block;
+
+  font-family: "fairplex-wide";
+  font-size: 24px;
+  opacity: 1;
+  font-weight: 700;
+  text-transform: uppercase;
+
+  -webkit-transition: background-color 0.2s ease-in-out;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.button-login:hover {
+  background-color: #dddddd;
+  color: #bb0642;
+}
