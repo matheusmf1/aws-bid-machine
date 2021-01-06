@@ -95,7 +95,8 @@ footer {
   margin: 0 auto;
 }
 
-#newContact > p{
+.list_title {
+
   padding: 8px 10px 10px 10px;
   width: 940px;
   height: 16px;
@@ -104,8 +105,9 @@ footer {
   color:#fff;
 }
 
+
 /* Border p */
-#newContact > p, #list p{
+.list_title, #list p{
   -webkit-border-top-left-radius: 20px;
   -webkit-border-top-right-radius: 20px;
   -moz-border-radius-topleft: 20px;
@@ -115,6 +117,14 @@ footer {
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
 }
+
+
+.container__input-word {
+  margin: 20px 0px 20px 0px;
+  width: 375px;
+  padding: 0 0 0 5px;
+}
+
 
 /* border div */
 #newContact input[type=text], #newContact, #list{
@@ -126,25 +136,19 @@ footer {
 }
 
 #newContact input[type=text]{
-  border:1px solid #ccc;
-  font:14px arial;
-  width:200px;
-  min-height:30px;
-  display:block;
-  margin-bottom:15px;
-  margin-top:5px;
-  outline: none;
-  float:left;
+  border: 1px solid #ccc;
+  font: 14px arial;
+  width: 200px;
+  min-height: 30px;
   padding: 0 0 0 8px;
-  margin: 20px 0 0 8px;
+
 }
 
 #newContact input[type=button]{
   width: 110px;
   height: 32px;
   position: relative;
-  bottom: -20px;
-  right: -10px;   
+  margin: 0 0 0 10px;
   cursor: pointer;
 }
 
@@ -255,6 +259,64 @@ footer {
   font:  14px sans-serif;
   color:#4F4F4F;
 }
+
+.container__horizontal{
+  display: flex;
+  flex-direction: row;
+}
+
+.container__upload-file {
+  display: inline-flex;
+  margin: auto 20px;
+  /* width: 375px; */
+  margin: auto 10px auto 240px;
+}
+
+.container__upload-button {
+  margin: auto 5px auto 5px;
+  position: relative;
+  width: 150px;
+  cursor: pointer;
+  border: 0;
+  height: 40px;
+  border-radius: 5px;
+  outline: 0;
+  font:  16px sans-serif;
+}
+
+.uploadBtn {
+  margin: auto 5px auto 5px;
+  position: relative;
+  width: 150px;
+  cursor: pointer;
+  border: 0;
+  height: 40px;
+  border-radius: 5px;
+  outline: 0;
+}
+.uploadBtn:hover:after {
+  background: #5978f8;
+}
+
+.uploadBtn:after {
+  transition: 200ms all ease;
+  border-bottom: 3px solid rgba(0,0,0,.2);
+  background: var( --highlight-color );
+  text-shadow: 0 2px 0 rgba(0,0,0,.2);
+  color: #fff;
+  font-size: 16px;
+  text-align: center;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  content: 'Upload XML';
+  line-height: 42px;
+  border-radius: 5px;
+}
+
 
 
 /* Buttons  */

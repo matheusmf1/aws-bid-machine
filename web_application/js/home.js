@@ -75,7 +75,8 @@
 
   // FORM WORDS
 
-  const wordsResourceAPI = '/wordsapi'
+  const wordsResourceAPI = '/wordsapi';
+  const fileResourceAPI = '/fileuploadapi';
 
   document.querySelector('#msg').style.display = 'none';
 
@@ -303,7 +304,7 @@
 
   const msg = ( idx , typ ) => {
     var err     = ['Prencha Todos os Campos Corretamente', 'Preencha os Campos Vazios','Usuário Já Cadastrado', 'Erro desconhecido, por favor tente novamente!'];
-    var success = ['Cadastrado Com Sucesso','Removido com Sucesso', 'Atualizado com Sucesso'];
+    var success = ['Cadastrado Com Sucesso','Removido com Sucesso', 'Atualizado com Sucesso', 'Arquivo enviado com Sucesso'];
 
     const msg = document.querySelector('#msg');
 
@@ -316,7 +317,56 @@
     else msg.innerHTML = success[idx] +'!';
     
     setTimeout('document.getElementById("msg").style.display = "none"', 2000);
-
 };
+
+
+
+
+// UPLOAD BUTTON
+
+const btnSubmit = document.querySelector( '.container__upload-button' );
+
+btnSubmit.addEventListener( 'click', async ( e ) => {
+
+  let files = document.querySelector( '.uploadBtn' ).files;
+
+  let file = files[0];
+
+  console.log( file )
+
+  var formData = new FormData();
+
+  let blobFile = new Blob( [ file ], { type: 'text/xml' } );
+
+  formData.append( 'blobFile', blobFile, files[0].name )
+
+  await fetch( _config.api.invokeUrl + fileResourceAPI, {
+    method: "POST",
+    mode: 'cors',
+
+    headers: {
+      "Authorization": authToken,  
+      'Content-Type': 'text/xml',
+    },
+
+    body:  formData
+    })
+    .then( response => response.json() )
+    .then( json => { 
+      console.log(json)
+
+      if( json['ResponseMetadata']['HTTPStatusCode'] === 200 ) {
+    
+        msg( 3, 'sucess' );
+      
+      }
+    
+    })
+    .catch( err => {
+      console.error(err);
+      msg( 3, 'errors' );
+    });
+
+});
 
 } )();
