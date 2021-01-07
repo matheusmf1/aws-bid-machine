@@ -246,7 +246,7 @@
 
     document.querySelector('#nome').value = editWord;
     document.querySelector('#cadastrar').remove();
-    document.querySelector('#newContact').appendChild( editar );
+    document.querySelector('.container__input-word').appendChild( editar );
 
 
     // BUTTON UPDATE
