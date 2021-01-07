@@ -303,7 +303,7 @@
 
 
   const msg = ( idx , typ ) => {
-    var err     = ['Prencha Todos os Campos Corretamente', 'Preencha os Campos Vazios','Usuário Já Cadastrado', 'Erro desconhecido, por favor tente novamente!'];
+    var err     = ['Prencha Todos os Campos Corretamente', 'Preencha os Campos Vazios','Usuário Já Cadastrado', 'Erro desconhecido, por favor tente novamente!', 'Nenhum arquivo selecionado!'];
     var success = ['Cadastrado Com Sucesso','Removido com Sucesso', 'Atualizado com Sucesso', 'Arquivo enviado com Sucesso'];
 
     const msg = document.querySelector('#msg');
@@ -311,7 +311,6 @@
     msg.className = typ;
     msg.style.marginBottom = '30px';
     msg.style.display = 'block';
-
 
     if( typ === 'errors') msg.innerHTML = err[idx] +'!';
     else msg.innerHTML = success[idx] +'!';
@@ -334,38 +333,45 @@ btnSubmit.addEventListener( 'click', async ( e ) => {
 
   console.log( file )
 
-  var formData = new FormData();
+  if ( file ) {
 
-  let blobFile = new Blob( [ file ], { type: 'text/xml' } );
-
-  formData.append( 'blobFile', blobFile, files[0].name )
-
-  await fetch( _config.api.invokeUrl + fileResourceAPI, {
-    method: "POST",
-    mode: 'cors',
-
-    headers: {
-      "Authorization": authToken,  
-      'Content-Type': 'text/xml',
-    },
-
-    body:  formData
-    })
-    .then( response => response.json() )
-    .then( json => { 
-      console.log(json)
-
-      if( json['ResponseMetadata']['HTTPStatusCode'] === 200 ) {
-    
-        msg( 3, 'sucess' );
+    var formData = new FormData();
+  
+    let blobFile = new Blob( [ file ], { type: 'text/xml' } );
+  
+    formData.append( 'blobFile', blobFile, files[0].name )
+  
+    await fetch( _config.api.invokeUrl + fileResourceAPI, {
+      method: "POST",
+      mode: 'cors',
+  
+      headers: {
+        "Authorization": authToken,  
+        'Content-Type': 'text/xml',
+      },
+  
+      body:  formData
+      })
+      .then( response => response.json() )
+      .then( json => { 
+        console.log(json)
+  
+        if( json['ResponseMetadata']['HTTPStatusCode'] === 200 ) {
       
-      }
-    
-    })
-    .catch( err => {
-      console.error(err);
-      msg( 3, 'errors' );
-    });
+          msg( 3, 'sucess' );
+        
+        }
+      
+      })
+      .catch( err => {
+        console.error(err);
+        msg( 3, 'errors' );
+      });
+  } 
+  else {
+    msg( 4, 'errors' );
+  }
+
 
 });
 

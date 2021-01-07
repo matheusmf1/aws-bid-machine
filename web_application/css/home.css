@@ -282,6 +282,11 @@ footer {
   border-radius: 5px;
   outline: 0;
   font:  16px sans-serif;
+  background-color: #f1f1f1;
+}
+
+.container__upload-button:hover {
+  background-color: #4f4f4f30;
 }
 
 .uploadBtn {

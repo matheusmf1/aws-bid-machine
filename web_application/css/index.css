@@ -94,8 +94,7 @@ body{
   width: 100vw;
   height: 100vh;
 
-  background-image: url(../images/background2.jpg);
-  /* background-image: url(../images/background.png); */
+  background-image: url(../images/background.jpg);
   background-size: cover;
   background-repeat: no-repeat;
   background-position: center bottom;
