@@ -2,9 +2,9 @@ var BidMachine = window.BidMachine || {};
 
 ( () => { 
 
-    const signinUrl = '/index.html';
-    const homeUrl = 'html/home.html';
-    const verifyUrl = 'html/verify.html';
+    const signinUrl = '../index.html';
+    const homeUrl = '../html/home.html';
+    const verifyUrl = '../html/verify.html';
 
     const poolData = {
         UserPoolId: _config.cognito.userPoolId,
