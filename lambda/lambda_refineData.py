@@ -8,9 +8,6 @@ def getJsonDataWr( event ):
 	
 	bucket = 's3://rhs-xml-test/'
 	filePath = event['Records'][0]['s3']['object']['key']
-	# filePath = 'JSON/155917_3_1091_20201207220101.json'
-	# filePath = "JSON/155917_8_1095_20201207223020.json"
-	
 	path = f'{bucket}{filePath}'
 	
 	return wr.s3.read_json( [ path ] )	
