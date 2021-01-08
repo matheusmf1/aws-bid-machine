@@ -24,9 +24,11 @@ def convert_xml_json( event, context ):
         
         #return as dict
         doc = xmltodict.parse( file )
-        print( doc )
+        print(doc)
+        return doc
         
         
     except Exception as e:
         print( e )
         raise e
+    
