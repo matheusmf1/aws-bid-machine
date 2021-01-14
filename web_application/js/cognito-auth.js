@@ -1,6 +1,6 @@
 var BidMachine = window.BidMachine || {};
 
-( () => { 
+(() => {
 
     const signinUrl = '../index.html';
     const homeUrl = '../html/home.html';
@@ -21,11 +21,11 @@ var BidMachine = window.BidMachine || {};
         userPool.getCurrentUser().signOut();
     };
 
-    BidMachine.authToken = new Promise( ( resolve, reject ) =>  {
+    BidMachine.authToken = new Promise((resolve, reject) => {
         var cognitoUser = userPool.getCurrentUser();
 
         if (cognitoUser) {
-            cognitoUser.getSession( (err, session) => {
+            cognitoUser.getSession((err, session) => {
                 if (err) {
                     reject(err);
                 } else if (!session.isValid()) {
@@ -107,23 +107,25 @@ var BidMachine = window.BidMachine || {};
     // SIGN IN
     const signinForm = document.querySelector('#signinForm');
 
-    if( signinForm ){
+    if (signinForm) {
 
-        signinForm.addEventListener( "submit", ( e ) => {
+        signinForm.addEventListener("submit", (e) => {
             e.preventDefault();
-           
-            const email = document.querySelector( '#emailInputSignin' ).value;
-            const password = document.querySelector( '#passwordInputSignin' ).value;
-    
-            signin( email, password, () => {
-    
-                console.log('Successfully Logged In');
-                window.location.href = homeUrl;
-            },
-            ( err ) => { alert(err); }
+
+            const email = document.querySelector('#emailInputSignin').value;
+            const password = document.querySelector('#passwordInputSignin').value;
+
+            signin(email, password, () => {
+
+                    console.log('Successfully Logged In');
+                    window.location.href = homeUrl;
+                },
+                (err) => {
+                    alert(err);
+                }
             );
-    
-        } );
+
+        });
     }
 
 
@@ -131,57 +133,74 @@ var BidMachine = window.BidMachine || {};
     // SIGN UP
     const registrationForm = document.querySelector('#registrationForm');
 
-    if ( registrationForm ) {
-        registrationForm.addEventListener( "submit", ( e ) => {
+    if (registrationForm) {
+        registrationForm.addEventListener("submit", (e) => {
             e.preventDefault();
+
+            const email = document.querySelector('#emailInputRegister').value;
+            const password = document.querySelector('#passwordInputRegister').value;
+            const password2 = document.querySelector('#password2InputRegister').value;
+
+
+            amazonRegex = /[a-z]*[._-]*[a-z]*(@amazon.com)/g;
+
+            if ( email.match( amazonRegex ) ) {
+                
+                const onSuccess = (result) => {
+                    var cognitoUser = result.user;
+                    console.log('user name is ' + cognitoUser.getUsername());
+                    alert('Registration successful. Please check your email for your verification code');
+                    window.location.href = verifyUrl;
+                };
+
+                const onFailure = (err) => {
+                    alert(err);
+                };
+
+                if (password === password2)
+                    register(email, password, onSuccess, onFailure);
+                else
+                    alert('Passwords do not match');
+            }
             
-            const email = document.querySelector( '#emailInputRegister' ).value;
-            const password = document.querySelector( '#passwordInputRegister' ).value;
-            const password2 = document.querySelector( '#password2InputRegister' ).value;
-    
-            const onSuccess = (result) => {
-                var cognitoUser = result.user;
-                console.log('user name is ' + cognitoUser.getUsername());
-                alert('Registration successful. Please check your email for your verification code');
-                window.location.href = verifyUrl;
-            };
-    
-            const onFailure = (err) => { alert(err); };
-    
-            if ( password === password2 ) 
-                register(email, password, onSuccess, onFailure);
-            else 
-                alert('Passwords do not match');        
-    
-    } );
+            else {
+
+                alert( 'Amazon Users only' )
+
+            }
+
+
+        });
     }
-    
+
 
     // VERIFY
     const verifyForm = document.querySelector('#verifyForm');
 
-    if ( verifyForm ) {
+    if (verifyForm) {
 
-        verifyForm.addEventListener( "submit", (e) => {
-    
+        verifyForm.addEventListener("submit", (e) => {
+
             e.preventDefault();
-    
-            const email = document.querySelector( '#emailInputVerify' ).value;
-            const code = document.querySelector( '#codeInputVerify' ).value;
-    
-            verify( email, code, 
-                ( result ) => {
+
+            const email = document.querySelector('#emailInputVerify').value;
+            const code = document.querySelector('#codeInputVerify').value;
+
+            verify(email, code,
+                (result) => {
                     console.log('call result: ' + result);
                     console.log('Successfully verified');
                     alert('Verification successful. You will now be redirected to the login page.');
                     window.location.href = signinUrl;
                 },
-                
-                ( err ) => { alert(err); }
+
+                (err) => {
+                    alert(err);
+                }
             );
-    
-        } );
+
+        });
     }
 
 
- })();
+})();
