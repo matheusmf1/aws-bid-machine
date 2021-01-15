@@ -18,10 +18,22 @@ def putData( event ):
         print( username )
         
         body = json.loads( event['body'] )
-        
         palavra = body['palavra']
-     
-        response = table.put_item(Item= {'ItemId': itemId,'user': username, 'word': palavra})
+        
+        responseScan = table.scan( FilterExpression = Attr( 'user' ).eq( username ) )
+        scanItem = responseScan['Items'][0]
+        listWords = scanItem[ "word" ]
+        
+        
+        listWords.append( palavra )
+        
+        listWords.sort()
+        
+        response = table.update_item( 
+            Key={'ItemId': scanItem['ItemId']},
+            UpdateExpression = 'SET word = :newWord',
+            ExpressionAttributeValues = { ':newWord': listWords }
+        )
         
         print( response['ResponseMetadata']['HTTPStatusCode'] )
         
@@ -48,9 +60,8 @@ def getData( event ):
         
         sendVerificationEmailSES( username )
         
-        print('Uhuu')
-        
         response = table.scan( FilterExpression = Attr( 'user' ).eq( username ) & Attr( 'word' ).exists() )
+        
         print( response['Items'] )
         return {
             "statusCode": 200,
@@ -75,13 +86,21 @@ def deleteData( event ):
         print( f'user {username}')
         body = json.loads( event['body'] )
         palavra = body['palavra']
-    
-        responseScan = table.scan( FilterExpression = Attr( 'user' ).eq( username ) & Attr( 'word' ).eq( palavra ) )
         
-        scanItem = responseScan['Items'][0] 
-        print( scanItem )
-    
-        response = table.delete_item( Key={'ItemId': scanItem['ItemId']} )
+        responseScan = table.scan( FilterExpression = Attr( 'user' ).eq( username ) )
+        scanItem = responseScan['Items'][0]
+        
+        listWords = scanItem[ "word" ]
+
+        listWords.remove( palavra )
+        
+        listWords.sort()
+        
+        response = table.update_item( 
+            Key={'ItemId': scanItem['ItemId']},
+            UpdateExpression = 'SET word = :newWord',
+            ExpressionAttributeValues = { ':newWord': listWords }
+        )
         
         print( response )
         
@@ -110,16 +129,24 @@ def updateData( event ):
         body = json.loads( event['body'] )
         palavra = body['palavra']
         novaPalavra = body['novaPalavra']
-    
-        responseScan = table.scan( FilterExpression = Attr( 'user' ).eq( username ) & Attr( 'word' ).eq( palavra ) )
+
         
-        scanItem = responseScan['Items'][0] 
-        print( scanItem )
+        responseScan = table.scan( FilterExpression = Attr( 'user' ).eq( username ) )
+        scanItem = responseScan['Items'][0]
+        
+        listWords = scanItem[ "word" ]
+
+        listWords[ listWords.index( palavra ) ] = novaPalavra
+        
+        listWords.sort()
+        
+        print( listWords )
+        
     
         response = table.update_item( 
             Key={'ItemId': scanItem['ItemId']},
             UpdateExpression = 'SET word = :newWord',
-            ExpressionAttributeValues = { ':newWord': novaPalavra }
+            ExpressionAttributeValues = { ':newWord': listWords }
         )
         
         print( response )
