@@ -63,7 +63,11 @@
 
       json.forEach( item => {
 
-        listWords( item[ 'word' ] );
+        item['word'].forEach( item => {
+
+          listWords( item );
+
+        });
 
       });
   
@@ -183,9 +187,6 @@
       console.log('Delete');
      
       e.preventDefault();
-
-      let data = { palavra: word }
-
 
       await fetch( _config.api.invokeUrl + wordsResourceAPI, {
         method: "DELETE",

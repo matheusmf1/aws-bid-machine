@@ -186,17 +186,37 @@ var BidMachine = window.BidMachine || {};
             const email = document.querySelector('#emailInputVerify').value;
             const code = document.querySelector('#codeInputVerify').value;
 
+            const defaultUserSettings = '/defaultUserSettings';
+
             verify(email, code,
-                (result) => {
+                async ( result ) => {
                     console.log('call result: ' + result);
                     console.log('Successfully verified');
-                    alert('Verification successful. You will now be redirected to the login page.');
-                    window.location.href = signinUrl;
+                    
+                    let data = { "email": email }
+                    
+                    await fetch( _config.api.invokeUrl +  defaultUserSettings, {
+                        method: "POST",
+                        mode: 'cors',
+                    
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                    
+                        body:  JSON.stringify( data )
+                        })
+                        .then( response => response.json() )
+                        .then( json => { 
+                            // console.log(json)
+                            alert('Verification successful. You will now be redirected to the login page.');
+                            window.location.href = signinUrl;
+                         })
+                        .catch( err => { console.error(err); });
+  
                 },
 
-                (err) => {
-                    alert(err);
-                }
+                ( err ) => alert(err)
+                
             );
 
         });
