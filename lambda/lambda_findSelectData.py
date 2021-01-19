@@ -22,10 +22,7 @@ def getUserWords():
     users = { }
     
     for user in data:
-      users[ user['user'] ] = []
-      
-    for userWord in data:
-      users[ userWord['user'] ].append( userWord['word'].lower() )
+      users[ user['user'] ] = list( map( lambda srt: srt.lower(), user['word'] ) )
       
     print( users )
     
@@ -53,7 +50,28 @@ def searchUserWords( users, df ):
   return foundWordUsers
 
 
-def sendNotification( event, dictFoundWords ):
+def getAdditionalEmailInfo( df ):
+
+  data = { 'orgao': [], 'linkEdital': [] }
+
+  for row in df['orgao']:
+    data['orgao'].append( row )
+
+  for row in df['links']:
+    data['linkEdital'].append( row )
+
+  return data
+
+
+def getLicitacaoObject( df ):
+  
+  print( df['objeto'] )
+  
+  for row in df['objeto']:
+    print( row )
+  
+  
+def sendNotification( event, dictFoundWords, additionalEmailInfo ):
   
   print( 'SendNotification' )
   ses = boto3.client( 'ses' )
@@ -63,28 +81,56 @@ def sendNotification( event, dictFoundWords ):
   fileName = fileName.split( 'JSON/' )[1].split( '.json' )[0] + '.xml'
   print(fileName)
   
-  for content in dictFoundWords:
+  for user in dictFoundWords:
     
-    email = content.replace( '-at-', '@' )
+    email = user.replace( '-at-', '@' )
     
     emailName  = email.split('@')[0]
     
-    wordsCounter = Counter( dictFoundWords[content] ).items()
+    wordsCounter = Counter( dictFoundWords[user] ).items()
+    
+    orgaoLicitanteCounter = Counter( additionalEmailInfo['orgao'] ).items()
     
     words = ''
+    orgaoLicitante = ''
+    linkEdital = ''
     
     for item in wordsCounter:
-      words += f'\n{ item[0] }: { item[1] } vez(es).'
+      words += f'<li>{ item[0] }: { item[1] } vez(es).</li>'
       
-    body = f"""
-      \nOlá {emailName}, esse email contém as informações geradas de forma automática e podem ser localizadas no arquivo { fileName }
+    for orgao in orgaoLicitanteCounter:
+      orgaoLicitante += f'<li>{ orgao[0] }: { orgao[1] } vez(es).</li>'
       
-      \nAqui estão as palavras encontradas:
-      { words }
-  
-  """
-
-    print( body )
+      
+    for link in additionalEmailInfo['linkEdital']:
+      linkEdital += f'<li>{link}</li>'
+      
+      
+    bodyHtml = f"""<!DOCTYPE html>
+    <html lang="pt-BR">
+    
+    <h1>Olá {emailName}</h1>
+    
+    <p>Esse email contém as informações geradas de forma automática e podem ser localizadas no arquivo <b>{ fileName }</b></p>
+    
+    <h4>Aqui estão as palavras encontradas:</h4>
+    <ul>
+     { words }
+    </ul>
+    
+    <h4>Órgão Licitante:</h4>
+    <ul>
+      { orgaoLicitante }
+    </ul>
+    
+    <h4>Link do Edital:</h4>
+    <ul>
+      { linkEdital }
+    </ul>
+    
+    </html>
+"""
+    
   
     ses.send_email(
       Source = "matmfran@amazon.com",
@@ -102,14 +148,10 @@ def sendNotification( event, dictFoundWords ):
           'Charset': 'UTF-8'
         },
         'Body': {
-          'Text': {
-            'Data': body,
+          'Html': {
+            'Data': bodyHtml,
             'Charset': 'UTF-8'
-          },
-          # 'Html': {
-          #   'Data': body,
-          #   'Charset': 'UTF-8'
-          # }
+          }
         }
       }
   
@@ -134,6 +176,8 @@ def lambda_handler(event, context):
   
   print( foundWordUsers )
   
-  sendNotification( event, foundWordUsers )
+  additionalEmailInfo = getAdditionalEmailInfo( df )
+  
+  sendNotification( event, foundWordUsers, additionalEmailInfo )
   
   print('ACABOU')
