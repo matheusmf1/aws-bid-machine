@@ -2,6 +2,7 @@ import json
 import boto3 
 import awswrangler as wr
 import pandas as pd
+import numpy as np
 
 
 def getJsonDataWr( event ):
@@ -14,6 +15,7 @@ def getJsonDataWr( event ):
 	
 	
 def createNewColumns( df ):
+	print( "CreateNewColumns" )
 	
 	try:
 		
@@ -23,7 +25,10 @@ def createNewColumns( df ):
 			
 		elif type(df['palavrasEncontradasAgrupadasXml']['palavra']) == list:
 			
-			df['palavraEncontrada'] = ",".join( df['palavrasEncontradasAgrupadasXml']['palavra'] )  
+			df['palavraEncontrada'] = ",".join( df['palavrasEncontradasAgrupadasXml']['palavra'] )
+		
+		elif type(df['palavrasEncontradasAgrupadasXml']['palavra']) == np.float64:
+			df['palavraEncontrada'] = "Palavras não encontradas no XML."
 			
 		
 		if type( df['linksAgrupadosXml']['link'] ) == str:
@@ -34,6 +39,9 @@ def createNewColumns( df ):
 			
 			df['links'] = ",".join( df['linksAgrupadosXml']['link'] )
 			
+		elif type( df['linksAgrupadosXml']['link'] ) == np.float64:
+			df['links'] = "Não foi encontrato nenhum link no XML."
+			
 		
 		if type( df['trechosEncontradosAgrupadosXml']['trecho'] ) == str:
 			
@@ -42,12 +50,27 @@ def createNewColumns( df ):
 		elif ( type( df['trechosEncontradosAgrupadosXml']['trecho'] ) == list ):
 			
 			df['trechos'] = ",".join( df['trechosEncontradosAgrupadosXml']['trecho'] )
+			
+		elif type( df['trechosEncontradosAgrupadosXml']['trecho'] ) == np.float64:
+			df['trechos'] = "Não foi encontrado nenhum trecho no XML."
 	
 	except Exception as e:
 		print('Deu ruim: ' + e)
 
 
 def prepareDataSet( data ):
+	
+	print( 'PrepareDataSet' )
+	
+	if data[ 'linksAgrupadosXml' ] is None:
+		data['linksAgrupadosXml'] = { 'link': None }
+		
+	if data[ 'palavrasEncontradasAgrupadasXml' ] is None:
+		data['palavrasEncontradasAgrupadasXml'] = { 'palavra': None }
+	
+	if data[ 'trechosEncontradosAgrupadosXml' ] is None:
+		data['trechosEncontradosAgrupadosXml'] = { 'trechos': None }
+		
 	df = pd.DataFrame( data )
 	
 	# Create new Columns
