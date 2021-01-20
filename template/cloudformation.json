@@ -1,0 +1,153 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description" : "This CloudFormation Template provides Big Machine Infra",
+  
+  "Parameters": {
+
+    "StackName": {
+      "Description": "The name of your stack to apply Tags",
+      "Type": "String",
+      "Default": "bid-machine-stack"
+    },
+
+    "BucketWebApplication": {
+      "Description": "The S3 bucket name to store the web application",
+      "Type": "String",
+      "Default": "bid-machine-web-application"
+    },
+
+    "BucketData": {
+      "Description": "The S3 bucket name to store all XML and its derived data",
+      "Type": "String",
+      "Default": "bid-machine-data"
+    },
+
+    "BucketLambdaLayer": {
+      "Description": "The S3 bucket name to store all packages to be used by Lambda functions",
+      "Type": "String",
+      "Default": "bid-machine-lambda-layer"
+    }
+  },
+  
+  "Resources": {
+
+    "S3BucketWebApplication": {
+      "Type": "AWS::S3::Bucket",
+      
+      "Properties": {
+     
+        "BucketName": { "Ref": "BucketWebApplication" },
+
+        "Tags": [
+          {
+            "Key": { "Ref": "StackName" },
+            "Value": { "Ref": "BucketWebApplication" }
+          }
+        ]
+      }
+    },
+
+    "BucketWebApplicationPolicy": {
+      "Type" : "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket" : { "Ref" : "BucketWebApplication" },
+        "PolicyDocument": {
+          "Id" : "MyPolicy",
+          "Statement": [
+            {
+              "Sid" : "Grant a CloudFront Origin Identity access to support private content",
+              "Effect" : "Allow",
+              "Action" : [ "s3:GetObject" ],
+              "Principal": {
+                "AWS": { "Fn::Sub": "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginAccessIdentity}" }
+              },
+              "Resource": { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketWebApplication" } , "/*" ] ] }
+            }
+          ]
+        }
+      }
+    },
+
+
+    "S3BucketData": {
+      "Type": "AWS::S3::Bucket",
+      
+      "Properties": {
+     
+        "BucketName": { "Ref": "BucketData" },
+
+        "Tags": [
+          {
+            "Key": { "Ref": "StackName" },
+            "Value": { "Ref": "BucketData" }
+          }
+        ]
+      }
+    },
+
+    "S3BucketLambdaLayer": {
+      "Type": "AWS::S3::Bucket",
+      
+      "Properties": {
+     
+        "BucketName": { "Ref": "BucketLambdaLayer" },
+
+        "Tags": [
+          {
+            "Key": { "Ref": "StackName" },
+            "Value": { "Ref": "BucketLambdaLayer" }
+          }
+        ]
+      }
+    },
+
+    "CloudFrontOriginAccessIdentity": {
+      "Type": "AWS::CloudFront::CloudFrontOriginAccessIdentity",
+      "Properties": {
+        "CloudFrontOriginAccessIdentityConfig": {
+          "Comment": "Bid Machine Origin Identity"
+        }
+      }
+    },
+
+    "CloudFrontDistribution": {
+      "Type": "AWS::CloudFront::Distribution",
+      "DependsOn": "CloudFrontOriginAccessIdentity",
+
+      "Properties": {
+        "DistributionConfig": {
+
+          "Origins": [ {
+            "DomainName": { "Fn::Sub": "${BucketWebApplication}.s3.amazonaws.com" },
+            "Id": { "Fn::Sub": "S3-${BucketWebApplication}" }, 
+            "S3OriginConfig": {
+              "OriginAccessIdentity" : { 
+                "Fn::Sub": "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
+              }
+            }
+          }],
+          
+          "Enabled": "true",
+          "DefaultRootObject": "index.html",
+          "DefaultCacheBehavior": {
+            
+            "AllowedMethods": [ "GET", "HEAD"],
+            "TargetOriginId": { "Fn::Sub": "S3-${BucketWebApplication}" },
+            "ForwardedValues": {
+              "QueryString": "false",
+              "Cookies": { "Forward": "none" }
+            },
+            "ViewerProtocolPolicy": "redirect-to-https"
+          },
+          "ViewerCertificate": {
+            "CloudFrontDefaultCertificate": "true"
+          }
+
+        }
+      }
+    }
+
+
+  }
+
+}
