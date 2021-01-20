@@ -17,7 +17,6 @@ def lambda_handler(event, context):
 	
 	client = boto3.client('s3')
 	
-	print("test")
 	print(body)
 	
 	client.put_object( Body = body, Bucket = "rhs-xml-test", Key = destinationFolder + key )

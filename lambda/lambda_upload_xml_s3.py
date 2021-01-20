@@ -3,7 +3,7 @@ import base64
 import boto3
 
 def lambda_handler(event, context):
-
+    
     body = base64.b64decode( event['body'] )
     
     decodedBody = body.decode( 'ISO-8859-1' )
