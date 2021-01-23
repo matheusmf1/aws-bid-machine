@@ -22,11 +22,12 @@
       "Default": "bid-machine-data"
     },
 
-    "BucketLambdaLayer": {
-      "Description": "The S3 bucket name to store all packages to be used by Lambda functions",
+    "BucketLambdaCode": {
+      "Description": "The S3 bucket name to store all Lambda functions",
       "Type": "String",
-      "Default": "bid-machine-lambda-layer"
+      "Default": "bid-machine-lambda-code"
     }
+    
   },
   
   "Resources": {
@@ -85,21 +86,70 @@
       }
     },
 
-    "S3BucketLambdaLayer": {
-      "Type": "AWS::S3::Bucket",
+    "S3CustomResource": {
+      "Type": "Custom::S3CustomResource",
       
       "Properties": {
-     
-        "BucketName": { "Ref": "BucketLambdaLayer" },
-
-        "Tags": [
-          {
-            "Key": { "Ref": "StackName" },
-            "Value": { "Ref": "BucketLambdaLayer" }
-          }
-        ]
+        
+        "ServiceToken": { "Fn::GetAtt" : [ "S3PutObjectFunction", "Arn"] },
+        "the_bucket": { "Ref": "S3BucketData" },
+        "dirs_to_create": "XML,JSON,refined_data"
       }
     },
+
+    "S3PutObjectFunction": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [ "IAMRoleBasicLambda", "S3BucketData" ],
+      "Properties": {
+        "Description": "Create dirs into this S3 Bucket",
+        "FunctionName": "testCF_S3CreateBucketDirs",
+        "Handler": "index.lambda_handler",
+        "Role": { "Fn::GetAtt" : ["IAMRoleBasicLambda", "Arn"] },
+        "Timeout": 360,
+        "Runtime": "python3.7",
+
+        "Code": {
+          "ZipFile": { "Fn::Join" : ["\n", [
+            "import boto3",
+            "import cfnresponse",
+            "def lambda_handler(event, context):",
+
+            "   the_event = event['RequestType']",
+            "   print(\"The event is: \", str(the_event))",
+            "   response_data = {}",
+            "   s3 = boto3.client('s3')",
+            "   print( event )",
+
+            "   the_bucket = event['ResourceProperties']['the_bucket']",
+            "   dirs = event['ResourceProperties']['dirs_to_create']",       
+            "   dirs_to_create = dirs.split( \",\" )",       
+            
+            "   try:",
+            
+            "       if the_event in ( 'Create', 'Update' ):",
+            "           for dir_name in dirs_to_create:",
+            "               print(\"Creating: \", str(dir_name))",
+            "               s3.put_object( Bucket = the_bucket, Key = ( dir_name + '/' ) )",
+            
+            "       elif the_event == 'Delete':",
+            "           print( \"Deleting S3 Content...\" )",
+            "           botoResourse = boto3.resource('s3')",
+            "           botoResourse.Bucket(str(the_bucket)).objects.all().delete()",
+            "           print(\"Deleting Bucket data: \" )",
+
+            "       cfnresponse.send(event,context,cfnresponse.SUCCESS,response_data)",
+
+            "   except Exception as e:",
+            "       print(\"Execution failed...\")",
+            "       print(str(e))",
+            "       response_data['Data'] = str(e)",
+            "       cfnresponse.send(event,context,cfnresponse.FAILED,response_data)"
+          ]]}
+        }
+      }
+    },
+
+
 
     "CloudFrontOriginAccessIdentity": {
       "Type": "AWS::CloudFront::CloudFrontOriginAccessIdentity",
@@ -145,6 +195,109 @@
 
         }
       }
+    },
+
+    "IAMRoleBasicLambda": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+
+        "RoleName": "BidMachineBasicLambdaRole",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "lambda.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }]
+        },
+
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ]
+
+      }
+    },
+
+    "LambdaLayerRequests": {
+      "Type": "AWS::Lambda::LayerVersion",
+      "Properties": {
+        "CompatibleRuntimes": [ "python3.7" ],
+        "Content": {
+          "S3Bucket": { "Ref": "BucketLambdaCode" },
+          "S3Key": "lambda_layer/requests_lambda_layer.zip"
+        }
+      }
+    },
+
+    "LambdaLayerDataWrangler": {
+      "Type": "AWS::Lambda::LayerVersion",
+      "Properties": {
+        "CompatibleRuntimes": [ "python3.7" ],
+        "Content": {
+          "S3Bucket": { "Ref": "BucketLambdaCode" },
+          "S3Key": "lambda_layer/aws_data_wrangler_lambda_layer.zip"
+        }
+      }
+    },
+
+    "LambdaLayerXMLToDict": {
+      "Type": "AWS::Lambda::LayerVersion",
+      "Properties": {
+        "CompatibleRuntimes": [ "python3.7" ],
+        "Content": {
+          "S3Bucket": { "Ref": "BucketLambdaCode" },
+          "S3Key": "lambda_layer/xml_to_dict_layer.zip"
+        }
+      }
+    },
+
+    "LambdaUploadXMLS3" : {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [ "IAMRoleBasicLambda", "LambdaLayerRequests" ],
+      "Properties": {
+
+        "Code": {
+          "S3Bucket" : { "Ref": "BucketLambdaCode" },
+          "S3Key": "lambda_code/upload_xml_s3.zip"
+        },
+        
+        "FunctionName": "testCF_upload_xml_s3",
+        "Description": "Lambda to upload XML to S3",
+        "Handler": "lambda_function.lambda_handler",
+        "MemorySize": 128,
+        "Runtime": "python3.7",
+        "Role": { "Fn::GetAtt" : ["IAMRoleBasicLambda", "Arn"] },
+
+        "Layers": [ { "Ref": "LambdaLayerRequests" } ]
+      }
+      
+    },
+
+    "LambdaXMLToJSON" : {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [ "IAMRoleBasicLambda", "LambdaLayerRequests", "LambdaLayerXMLToDict" ],
+      "Properties": {
+
+        "Code": {
+          "S3Bucket" : { "Ref": "BucketLambdaCode" },
+          "S3Key": { "Fn::Sub": "lambda_code/xml_dict.zip" }
+        },
+        
+        "FunctionName": "testCF_xmlToDict",
+        "Description": "Lambda to convert XML to JSON",
+        "Handler": "lambda_function.lambda_handler",
+        "MemorySize": 128,
+        "Timeout": 10,
+        "PackageType": "Zip",
+        "Runtime": "python3.7",
+        "Role": { "Fn::GetAtt" : ["IAMRoleBasicLambda", "Arn"] },
+
+        "Layers": [ { "Ref": "LambdaLayerRequests" }, { "Ref": "LambdaLayerXMLToDict" } ]
+      }
+      
     }
 
 
