@@ -72,17 +72,47 @@
 
     "S3BucketData": {
       "Type": "AWS::S3::Bucket",
-      
+
+      "DependsOn": [ "S3InvokeLambdaPermission" ],
       "Properties": {
      
         "BucketName": { "Ref": "BucketData" },
-
         "Tags": [
           {
             "Key": { "Ref": "StackName" },
             "Value": { "Ref": "BucketData" }
           }
-        ]
+        ],
+
+        "NotificationConfiguration": {
+          "LambdaConfigurations": [
+            {
+              "Event": "s3:ObjectCreated:*",
+              "Filter": {
+                "S3Key": {
+                  "Rules": [
+                    { 
+                      "Name": "prefix",
+                      "Value": "XML/"
+                   }
+                  ]
+                }
+              },
+              "Function": { "Fn::GetAtt": [ "LambdaXMLToJSON", "Arn" ] }
+            }
+          ]
+        }
+      }
+    },
+
+    "S3InvokeLambdaPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": { "Ref": "LambdaXMLToJSON" },
+        "Principal": "s3.amazonaws.com",
+        "SourceAccount": {"Ref": "AWS::AccountId"},
+        "SourceArn": { "Fn::Sub": "arn:aws:s3:::${BucketData}" }
       }
     },
 
@@ -148,7 +178,6 @@
         }
       }
     },
-
 
 
     "CloudFrontOriginAccessIdentity": {
