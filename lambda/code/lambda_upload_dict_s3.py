@@ -2,6 +2,9 @@ import json
 import boto3
 
 def lambda_handler(event, context):
+	print( event )
+	
+	bucketName = event['requestPayload']['Records'][0]['s3']['bucket']['name']
 	
 	fileName = event['requestPayload']['Records'][0]['s3']['object']['key']
 	
@@ -19,5 +22,5 @@ def lambda_handler(event, context):
 	
 	print(body)
 	
-	client.put_object( Body = body, Bucket = "rhs-xml-test", Key = destinationFolder + key )
+	client.put_object( Body = body, Bucket = bucketName , Key = destinationFolder + key )
 	print("Uploaded to S3")
