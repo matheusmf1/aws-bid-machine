@@ -4,12 +4,13 @@ import awswrangler as wr
 import pandas as pd
 import numpy as np
 
+bucketName = ''
 
 def getJsonDataWr( event ):
 	
-	bucket = 's3://rhs-xml-test/'
+	bucket = f's3://{bucketName}'	
 	filePath = event['Records'][0]['s3']['object']['key']
-	path = f'{bucket}{filePath}'
+	path = f'{bucket}/{filePath}'
 	
 	return wr.s3.read_json( [ path ] )	
 	
@@ -85,9 +86,10 @@ def prepareDataSet( data ):
 	return df
 
 def save_to_s3_parquet( df ):
-	
-	path = 's3://rhs-xml-test/refined_data/'
 
+	print('Parquet')
+	path = f's3://{bucketName}/refined_data'
+	
 	wr.s3.to_parquet(
 		df = df,
 		path = path,
@@ -97,6 +99,10 @@ def save_to_s3_parquet( df ):
 
 	
 def lambda_handler( event, context ):
+	
+	global bucketName
+	
+	bucketName = event['Records'][0]['s3']['bucket']['name']
 	
 	data = getJsonDataWr( event )
 	
