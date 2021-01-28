@@ -233,20 +233,40 @@
         "RoleName": "BidMachineBasicLambdaRole",
         "AssumeRolePolicyDocument": {
           "Version": "2012-10-17",
-          "Statement": [{
-            "Effect": "Allow",
-            "Principal": {
-              "Service": "lambda.amazonaws.com"
-            },
-            "Action": "sts:AssumeRole"
-          }]
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": { "Service": "lambda.amazonaws.com" },
+              "Action": "sts:AssumeRole"
+            }
+          ]
         },
-
         "ManagedPolicyArns": [
           "arn:aws:iam::aws:policy/AmazonS3FullAccess",
           "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
         ]
+      }
+    },
 
+    "IAMRoleLambdaDestinations": {
+      "Type": "AWS::IAM::ManagedPolicy",
+      "DependsOn": [ "LambdaXMLToJSON" ],
+      "Properties": {
+        
+        "ManagedPolicyName": "LambdaDestination",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": "lambda:InvokeFunction",
+              "Resource": [
+                { "Fn::GetAtt": [ "LambdaUploadDictToS3", "Arn" ] }
+              ]
+            }
+          ]
+        },
+        "Roles": [ { "Ref": "IAMRoleBasicLambda" } ]
       }
     },
 
@@ -323,10 +343,46 @@
         "PackageType": "Zip",
         "Runtime": "python3.7",
         "Role": { "Fn::GetAtt" : ["IAMRoleBasicLambda", "Arn"] },
-
         "Layers": [ { "Ref": "LambdaLayerRequests" }, { "Ref": "LambdaLayerXMLToDict" } ]
       }
       
+    },
+
+    "LambdaUploadDictToS3": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [ "IAMRoleBasicLambda", "LambdaLayerRequests" ],
+      "Properties": {
+        "Code": {
+          "S3Bucket" : { "Ref": "BucketLambdaCode" },
+          "S3Key": { "Fn::Sub": "lambda_code/upload_dict_s3.zip" }
+        },
+        
+        "FunctionName": "testCF_upload_dict_s3",
+        "Description": "Lambda to upload converted XML to JSON into S3 bucket",
+        "Handler": "lambda_function.lambda_handler",
+        "MemorySize": 128,
+        "Timeout": 10,
+        "PackageType": "Zip",
+        "Runtime": "python3.7",
+        "Role": { "Fn::GetAtt" : ["IAMRoleBasicLambda", "Arn"] },
+        "Layers": [ { "Ref": "LambdaLayerRequests" } ]
+      }
+    },
+
+    "LambdaXMLToJSONDestination": {
+      "Type": "AWS::Lambda::EventInvokeConfig",
+      "DependsOn": "IAMRoleLambdaDestinations",
+      "Properties": {
+        "DestinationConfig": {
+          "OnSuccess": {
+            "Destination": { "Fn::GetAtt" : [ "LambdaUploadDictToS3", "Arn" ] }
+          }
+        },
+    
+        "FunctionName": { "Ref": "LambdaXMLToJSON" },
+        "MaximumRetryAttempts": 1,
+        "Qualifier": "$LATEST"
+      }
     }
 
 
