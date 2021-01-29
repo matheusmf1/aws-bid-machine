@@ -23,7 +23,7 @@
     },
 
     "BucketLambdaCode": {
-      "Description": "The S3 bucket name to store all Lambda functions",
+      "Description": "The S3 bucket name that is stored all Lambda functions",
       "Type": "String",
       "Default": "bid-machine-lambda-code"
     }
@@ -73,7 +73,7 @@
     "S3BucketData": {
       "Type": "AWS::S3::Bucket",
 
-      "DependsOn": [ "S3InvokeLambdaPermission" ],
+      "DependsOn": [ "S3InvokeLambdaPermissionXMLToJSON", "S3InvokeLambdaPermissionRefineData" ],
       "Properties": {
      
         "BucketName": { "Ref": "BucketData" },
@@ -99,17 +99,42 @@
                 }
               },
               "Function": { "Fn::GetAtt": [ "LambdaXMLToJSON", "Arn" ] }
+            },
+            {
+              "Event": "s3:ObjectCreated:*",
+              "Filter": {
+                "S3Key": {
+                  "Rules": [
+                    { 
+                      "Name": "prefix",
+                      "Value": "JSON/"
+                   }
+                  ]
+                }
+              },
+              "Function": { "Fn::GetAtt": [ "LambdaRefineData", "Arn" ] }
             }
           ]
         }
       }
     },
 
-    "S3InvokeLambdaPermission": {
+    "S3InvokeLambdaPermissionXMLToJSON": {
       "Type": "AWS::Lambda::Permission",
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": { "Ref": "LambdaXMLToJSON" },
+        "Principal": "s3.amazonaws.com",
+        "SourceAccount": {"Ref": "AWS::AccountId"},
+        "SourceArn": { "Fn::Sub": "arn:aws:s3:::${BucketData}" }
+      }
+    },
+
+    "S3InvokeLambdaPermissionRefineData": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": { "Ref": "LambdaRefineData" },
         "Principal": "s3.amazonaws.com",
         "SourceAccount": {"Ref": "AWS::AccountId"},
         "SourceArn": { "Fn::Sub": "arn:aws:s3:::${BucketData}" }
@@ -226,6 +251,26 @@
       }
     },
 
+    "CognitoUserPool": {
+      "Type": "AWS::Cognito::UserPool",
+      "Properties": {
+        "UserPoolName": "BidMachine",
+        "AliasAttributes": [ "email" ],
+        "AutoVerifiedAttributes": [ "email" ]
+      }
+    },
+
+    "CognitoUserPoolClient": {
+      "Type": "AWS::Cognito::UserPoolClient",
+      "DependsOn": "CognitoUserPool",
+      "Properties": {
+        "ClientName" : "BidMachineApp",
+        "UserPoolId": { "Ref": "CognitoUserPool" },
+        "GenerateSecret": false
+      }
+    },
+
+
     "IAMRoleBasicLambda": {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -250,7 +295,7 @@
 
     "IAMRoleLambdaDestinations": {
       "Type": "AWS::IAM::ManagedPolicy",
-      "DependsOn": [ "LambdaXMLToJSON" ],
+      "DependsOn": [ "LambdaXMLToJSON", "LambdaRefineData" ],
       "Properties": {
         
         "ManagedPolicyName": "LambdaDestination",
@@ -261,12 +306,118 @@
               "Effect": "Allow",
               "Action": "lambda:InvokeFunction",
               "Resource": [
-                { "Fn::GetAtt": [ "LambdaUploadDictToS3", "Arn" ] }
+                { "Fn::GetAtt": [ "LambdaUploadDictToS3", "Arn" ] },
+                { "Fn::GetAtt": [ "LambdaFindSelectData", "Arn" ] }
               ]
             }
           ]
         },
         "Roles": [ { "Ref": "IAMRoleBasicLambda" } ]
+      }
+    },
+
+    "IAMRoleLambdaFindSelectData" : {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+
+        "RoleName": "BidMachineFindSelectDataLambdaRole",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": { "Service": "lambda.amazonaws.com" },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/AmazonSESFullAccess",
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ]
+      }
+    },
+
+    "LambdaUpdateCognitoConfigS3CustomResources": {
+      "Type": "Custom::S3CustomResource",
+      "DependsOn": [ "S3BucketWebApplication", "CognitoUserPoolClient" ],
+      "Properties": { 
+        "ServiceToken": { "Fn::GetAtt" : [ "LambdaUpdateCognitoConfigS3", "Arn"] },
+        "UserPool": { "Ref": "CognitoUserPool" },
+        "Client": { "Ref": "CognitoUserPoolClient" },
+        "Region": { "Ref": "AWS::Region" },
+        "Bucket": { "Ref": "BucketWebApplication" },
+        "filePath": "js/config.js"
+      }
+    },
+
+    "LambdaUpdateCognitoConfigS3": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [ "IAMRoleBasicLambda" ],
+      "Properties": {
+
+        "Description": "Update config.js file from web application bucket",
+        "FunctionName": "UpdateConfigS3WebFile",
+        "Handler": "index.lambda_handler",
+        "Role": { "Fn::GetAtt" : ["IAMRoleBasicLambda", "Arn"] },
+        "Timeout": 120,
+        "Runtime": "python3.7",
+
+        "Code": {
+          "ZipFile": { "Fn::Join" : ["\n", [
+            
+            "import boto3",
+            "import cfnresponse",
+            "import json\n",
+
+            "s3 = boto3.resource('s3')\n",
+
+            "def create( properties, physical_id ):\n",
+            "   userPoolId = properties['UserPool']",
+            "   clientId = properties['Client']",
+            "   region = properties['Region']",
+            "   bucket = properties['Bucket']",
+            "   filePath = properties['filePath']\n",
+
+            "   config_content = \"\"\" var _config = { cognito: { userPoolId: %s, userPoolClientId: '%s', region: '%s' }, api: { invokeUrl: '' } } \"\"\" ",
+            "   config_content = config_content % (userPoolId, clientId, region)",
+            "   config = s3.Object(bucket,f'{filePath}')",
+            "   config.put(Body=config_content)\n",
+            "   return cfnresponse.SUCCESS, None\n",
+
+            "def update( properties, physical_id ):",
+            "   return create(properties, physical_id)\n",
+
+            "def delete( properties, physical_id ):",
+            "   return cfnresponse.SUCCESS, physical_id\n",
+
+            "def lambda_handler(event, context):\n",
+
+            "   print(\"UpdateConfigS3WebFile\")",
+            "   print(event)",
+            "   status = cfnresponse.FAILED",       
+            "   new_physical_id = None\n",              
+
+            "   try:\n",
+            
+            "       properties = event.get('ResourceProperties')",
+            "       physical_id = event.get('PhysicalResourceId')",
+            "       status, new_physical_id = { ",
+            "           'Create': create,",
+            "           'Update': update,",
+            "           'Delete': delete,",
+            "       }.get(event['RequestType'], lambda x, y: (cfnresponse.FAILED, None))(properties, physical_id)\n",
+            
+            "   except Exception as e:",
+            "       print(\"Execution failed...\")",
+            "       print(str(e))",
+            "       status = cfnresponse.FAILED",
+            "       cfnresponse.send(event, context, status, {}, new_physical_id)\n",
+            "   finally:",
+            "       cfnresponse.send(event, context, status, {}, new_physical_id)"
+          ]]}
+        }
+
       }
     },
 
@@ -383,8 +534,66 @@
         "MaximumRetryAttempts": 1,
         "Qualifier": "$LATEST"
       }
-    }
+    },
 
+    "LambdaRefineData" : {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [ "IAMRoleBasicLambda", "LambdaLayerRequests", "LambdaLayerDataWrangler" ],
+      "Properties": {
+
+        "Code": {
+          "S3Bucket" : { "Ref": "BucketLambdaCode" },
+          "S3Key": { "Fn::Sub": "lambda_code/refineData.zip" }
+        },
+        
+        "FunctionName": "testCF_refineData",
+        "Description": "Lambda to manipulate data as dataframe from JSON",
+        "Handler": "lambda_function.lambda_handler",
+        "MemorySize": 128,
+        "Timeout": 10,
+        "PackageType": "Zip",
+        "Runtime": "python3.7",
+        "Role": { "Fn::GetAtt" : ["IAMRoleBasicLambda", "Arn"] },
+        "Layers": [ { "Ref": "LambdaLayerRequests" }, { "Ref": "LambdaLayerDataWrangler" } ]
+      }
+    },
+
+    "LambdaFindSelectData" : {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [ "IAMRoleLambdaFindSelectData", "LambdaLayerRequests", "LambdaLayerDataWrangler" ],
+      "Properties": {
+        "Code": {
+          "S3Bucket" : { "Ref": "BucketLambdaCode" },
+          "S3Key": { "Fn::Sub": "lambda_code/function1.zip" }
+        },
+        
+        "FunctionName": "testCF_findSelectData",
+        "Description": "Lambda to match user data with the JSON",
+        "Handler": "lambda_function.lambda_handler",
+        "MemorySize": 128,
+        "Timeout": 10,
+        "PackageType": "Zip",
+        "Runtime": "python3.7",
+        "Role": { "Fn::GetAtt" : ["IAMRoleLambdaFindSelectData", "Arn"] },
+        "Layers": [ { "Ref": "LambdaLayerRequests" }, { "Ref": "LambdaLayerDataWrangler" } ]
+      }
+    },
+
+    "LambdaRefineDataDestination": {
+      "Type": "AWS::Lambda::EventInvokeConfig",
+      "DependsOn": "IAMRoleLambdaDestinations",
+      "Properties": {
+        "DestinationConfig": {
+          "OnSuccess": {
+            "Destination": { "Fn::GetAtt" : [ "LambdaFindSelectData", "Arn" ] }
+          }
+        },
+    
+        "FunctionName": { "Ref": "LambdaRefineData" },
+        "MaximumRetryAttempts": 1,
+        "Qualifier": "$LATEST"
+      }
+    }
 
   }
 
