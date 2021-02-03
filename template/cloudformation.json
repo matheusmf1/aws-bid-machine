@@ -26,6 +26,12 @@
       "Description": "The S3 bucket name that is stored all Lambda functions",
       "Type": "String",
       "Default": "bid-machine-lambda-code"
+    },
+
+    "DynamoDBTableName": {
+      "Description": "DynamoDB's table name",
+      "Type": "String",
+      "Default": "BidMachineItens2"
     }
     
   },
@@ -271,6 +277,527 @@
     },
 
 
+    "DynamoDBTable": {
+      "Type": "AWS::DynamoDB::Table",
+     
+      "Properties": {
+        "TableName": { "Ref": "DynamoDBTableName" },
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "ItemId",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName" : "ItemId",
+            "KeyType" : "HASH"
+          }
+        ],
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 5,
+          "WriteCapacityUnits": 5
+        }
+      }
+    },
+
+
+
+    "APIGatewayRestAPI": {
+      "Type": "AWS::ApiGateway::RestApi",
+      "Properties": {
+        "Name": "BidMachineAPI2",
+        "Description": "This API was created to attend BidMachine calls",
+        "EndpointConfiguration":{
+          "Types": [ "REGIONAL" ]
+        },
+        "BinaryMediaTypes": [ "multipart/form-data", "text/xml" ]
+      }
+    },
+
+    "APIGatewayResourceFileUploadApi": {
+      "Type": "AWS::ApiGateway::Resource",
+      "DependsOn": [ "APIGatewayRestAPI", "LambdaUploadXMLS3" ],
+      "Properties": {
+        "RestApiId": { "Ref": "APIGatewayRestAPI" },
+        "ParentId": { "Fn::GetAtt": ["APIGatewayRestAPI", "RootResourceId"] },
+        "PathPart": "fileuploadapi"
+      }
+    },
+
+    "APIGatewayResourceDefaultUserSettings": {
+      "Type": "AWS::ApiGateway::Resource",
+      "DependsOn": [ "APIGatewayResourceFileUploadApi", "LambdaLoadUserDefaultWords" ],
+      "Properties": {
+        "RestApiId": { "Ref": "APIGatewayRestAPI" },
+        "ParentId": { "Fn::GetAtt": ["APIGatewayRestAPI", "RootResourceId"] },
+        "PathPart": "defaultUserSettings"
+      }
+    },
+
+    "APIGatewayResourceWordsAPI": {
+      "Type": "AWS::ApiGateway::Resource",
+      "DependsOn": [ "APIGatewayResourceDefaultUserSettings", "LambdaCrudWordDynamo" ],
+      "Properties": {
+        "RestApiId": { "Ref": "APIGatewayRestAPI" },
+        "ParentId": { "Fn::GetAtt": ["APIGatewayRestAPI", "RootResourceId"] },
+        "PathPart": "wordsapi"
+      }
+    },
+
+    "APIGatewayCognitoAuthorizer": {
+      "Type" : "AWS::ApiGateway::Authorizer",
+      "DependsOn": [ "CognitoUserPool", "APIGatewayResourceFileUploadApi" ],
+      "Properties": {
+        "Type": "COGNITO_USER_POOLS",
+        "Name": "testAPICognitoAuth",
+        "IdentitySource": "method.request.header.Authorization",
+        "ProviderARNs": [ { "Fn::GetAtt": ["CognitoUserPool", "Arn"] }],
+        "RestApiId": { "Ref": "APIGatewayRestAPI" }
+      }
+    },
+
+
+
+    "APIGatewayMethodPostFileUpdateAPI": {
+      "Type": "AWS::ApiGateway::Method",
+      "DependsOn": [ "APIGatewayCognitoAuthorizer", "APIGatewayResourceWordsAPI" ],
+      "Properties": {
+        "RestApiId": { "Ref": "APIGatewayRestAPI" },
+        "ResourceId": { "Ref": "APIGatewayResourceFileUploadApi" },
+        "HttpMethod": "POST",
+        "AuthorizationType": "COGNITO_USER_POOLS",
+        "AuthorizerId": { "Ref": "APIGatewayCognitoAuthorizer" },
+        
+        "Integration": {
+          "Type": "AWS_PROXY",
+          "IntegrationResponses": [ 
+            {
+              "StatusCode": 200,
+              "ResponseParameters": {
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+                "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'",
+                "method.response.header.Access-Control-Allow-Origin": "'*'"
+              }            
+            } 
+          ],
+          "IntegrationHttpMethod": "POST",
+        
+          "Uri": {"Fn::Join" : ["", 
+            ["arn:aws:apigateway:", {"Ref": "AWS::Region"}, ":lambda:path/2015-03-31/functions/", {"Fn::GetAtt": ["LambdaUploadXMLS3", "Arn"]}, "/invocations"]
+          ]}
+        },
+        "MethodResponses": [
+          {
+            "StatusCode": 200,
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Headers": true,
+              "method.response.header.Access-Control-Allow-Methods": true,
+              "method.response.header.Access-Control-Allow-Origin": true
+            },
+            "ResponseModels": { "application/json": "Empty", "text/xml": "Empty" }
+          }
+        ]
+
+      }
+    },
+
+    "APIGatewayMethodPostDefaultUserSettings": {
+      "Type": "AWS::ApiGateway::Method",
+      "DependsOn": [ "APIGatewayMethodPostFileUpdateAPI", "APIGatewayResourceDefaultUserSettings" ],
+      "Properties": {
+        "RestApiId": { "Ref": "APIGatewayRestAPI" },
+        "ResourceId": { "Ref": "APIGatewayResourceDefaultUserSettings" },
+        "HttpMethod": "POST",
+        "AuthorizationType": "NONE",
+        
+        "Integration": {
+          "Type": "AWS_PROXY",
+          "IntegrationResponses": [ 
+            {
+              "StatusCode": 200,
+              "ResponseParameters": {
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+                "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'",
+                "method.response.header.Access-Control-Allow-Origin": "'*'"
+              }            
+            } 
+          ],
+          "IntegrationHttpMethod": "POST",
+        
+          "Uri": {"Fn::Join" : ["", 
+            ["arn:aws:apigateway:", {"Ref": "AWS::Region"}, ":lambda:path/2015-03-31/functions/", {"Fn::GetAtt": ["LambdaLoadUserDefaultWords", "Arn"]}, "/invocations"]
+          ]}
+        },
+        "MethodResponses": [
+          {
+            "StatusCode": 200,
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Headers": true,
+              "method.response.header.Access-Control-Allow-Methods": true,
+              "method.response.header.Access-Control-Allow-Origin": true
+            }
+          }
+        ]
+
+      }
+    },
+
+
+    "APIGatewayMethodPOSTWordsAPI": {
+      "Type": "AWS::ApiGateway::Method",
+      "DependsOn": [ "APIGatewayMethodPostDefaultUserSettings", "APIGatewayResourceWordsAPI" ],
+      "Properties": {
+        "RestApiId": { "Ref": "APIGatewayRestAPI" },
+        "ResourceId": { "Ref": "APIGatewayResourceWordsAPI" },
+        "HttpMethod": "POST",
+        "AuthorizationType": "COGNITO_USER_POOLS",
+        "AuthorizerId": { "Ref": "APIGatewayCognitoAuthorizer" },
+        
+        "Integration": {
+          "Type": "AWS_PROXY",
+          "IntegrationResponses": [ 
+            {
+              "StatusCode": 200,
+              "ResponseParameters": {
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+                "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'",
+                "method.response.header.Access-Control-Allow-Origin": "'*'"
+              }            
+            } 
+          ],
+          "IntegrationHttpMethod": "POST",
+        
+          "Uri": {"Fn::Join" : ["", 
+            ["arn:aws:apigateway:", {"Ref": "AWS::Region"}, ":lambda:path/2015-03-31/functions/", {"Fn::GetAtt": ["LambdaCrudWordDynamo", "Arn"]}, "/invocations"]
+          ]}
+        },
+        "MethodResponses": [
+          {
+            "StatusCode": 200,
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Headers": true,
+              "method.response.header.Access-Control-Allow-Methods": true,
+              "method.response.header.Access-Control-Allow-Origin": true
+            }
+          }
+        ]
+
+      }
+    },
+
+    "APIGatewayMethodDELETEWordsAPI": {
+      "Type": "AWS::ApiGateway::Method",
+      "DependsOn": [ "APIGatewayMethodPOSTWordsAPI" ],
+      "Properties": {
+        "RestApiId": { "Ref": "APIGatewayRestAPI" },
+        "ResourceId": { "Ref": "APIGatewayResourceWordsAPI" },
+        "HttpMethod": "DELETE",
+        "AuthorizationType": "COGNITO_USER_POOLS",
+        "AuthorizerId": { "Ref": "APIGatewayCognitoAuthorizer" },
+        
+        "Integration": {
+          "Type": "AWS_PROXY",
+          "IntegrationResponses": [ 
+            {
+              "StatusCode": 200,
+              "ResponseParameters": {
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+                "method.response.header.Access-Control-Allow-Methods": "'DELETE,OPTIONS'",
+                "method.response.header.Access-Control-Allow-Origin": "'*'"
+              }            
+            } 
+          ],
+          "IntegrationHttpMethod": "POST",
+        
+          "Uri": {"Fn::Join" : ["", 
+            ["arn:aws:apigateway:", {"Ref": "AWS::Region"}, ":lambda:path/2015-03-31/functions/", {"Fn::GetAtt": ["LambdaCrudWordDynamo", "Arn"]}, "/invocations"]
+          ]}
+        },
+        "MethodResponses": [
+          {
+            "StatusCode": 200,
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Headers": true,
+              "method.response.header.Access-Control-Allow-Methods": true,
+              "method.response.header.Access-Control-Allow-Origin": true
+            }
+          }
+        ]
+
+      }
+    },
+
+    "APIGatewayMethodGETWordsAPI": {
+      "Type": "AWS::ApiGateway::Method",
+      "DependsOn": [ "APIGatewayMethodDELETEWordsAPI" ],
+      "Properties": {
+        "RestApiId": { "Ref": "APIGatewayRestAPI" },
+        "ResourceId": { "Ref": "APIGatewayResourceWordsAPI" },
+        "HttpMethod": "GET",
+        "AuthorizationType": "COGNITO_USER_POOLS",
+        "AuthorizerId": { "Ref": "APIGatewayCognitoAuthorizer" },
+        
+        "Integration": {
+          "Type": "AWS_PROXY",
+          "IntegrationResponses": [ 
+            {
+              "StatusCode": 200,
+              "ResponseParameters": {
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+                "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'",
+                "method.response.header.Access-Control-Allow-Origin": "'*'"
+              }            
+            } 
+          ],
+          "IntegrationHttpMethod": "POST",
+        
+          "Uri": {"Fn::Join" : ["", 
+            ["arn:aws:apigateway:", {"Ref": "AWS::Region"}, ":lambda:path/2015-03-31/functions/", {"Fn::GetAtt": ["LambdaCrudWordDynamo", "Arn"]}, "/invocations"]
+          ]}
+        },
+        "MethodResponses": [
+          {
+            "StatusCode": 200,
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Headers": true,
+              "method.response.header.Access-Control-Allow-Methods": true,
+              "method.response.header.Access-Control-Allow-Origin": true
+            }
+          }
+        ]
+
+      }
+    },
+
+    "APIGatewayMethodPUTWordsAPI": {
+      "Type": "AWS::ApiGateway::Method",
+      "DependsOn": [ "APIGatewayMethodGETWordsAPI" ],
+      "Properties": {
+        "RestApiId": { "Ref": "APIGatewayRestAPI" },
+        "ResourceId": { "Ref": "APIGatewayResourceWordsAPI" },
+        "HttpMethod": "PUT",
+        "AuthorizationType": "COGNITO_USER_POOLS",
+        "AuthorizerId": { "Ref": "APIGatewayCognitoAuthorizer" },
+        
+        "Integration": {
+          "Type": "AWS_PROXY",
+          "IntegrationResponses": [ 
+            {
+              "StatusCode": 200,
+              "ResponseParameters": {
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+                "method.response.header.Access-Control-Allow-Methods": "'PUT,OPTIONS'",
+                "method.response.header.Access-Control-Allow-Origin": "'*'"
+              }            
+            } 
+          ],
+          "IntegrationHttpMethod": "POST",
+        
+          "Uri": {"Fn::Join" : ["", 
+            ["arn:aws:apigateway:", {"Ref": "AWS::Region"}, ":lambda:path/2015-03-31/functions/", {"Fn::GetAtt": ["LambdaCrudWordDynamo", "Arn"]}, "/invocations"]
+          ]}
+        },
+        "MethodResponses": [
+          {
+            "StatusCode": 200,
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Headers": true,
+              "method.response.header.Access-Control-Allow-Methods": true,
+              "method.response.header.Access-Control-Allow-Origin": true
+            }
+          }
+        ]
+
+      }
+    },
+
+
+
+    "APIGatewayOptionsFileUploadAPI": {
+      "Type": "AWS::ApiGateway::Method",
+      "DependsOn": [ "APIGatewayMethodPostFileUpdateAPI" ],
+      "Properties": {
+        "RestApiId": { "Ref": "APIGatewayRestAPI" },
+        "ResourceId": { "Ref": "APIGatewayResourceFileUploadApi" },
+        "AuthorizationType": "NONE",
+        "HttpMethod": "OPTIONS",
+        "Integration": {
+          "Type": "MOCK",
+          "IntegrationResponses": [
+            {
+              "ResponseParameters": {
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+                "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS'",
+                "method.response.header.Access-Control-Allow-Origin": "'*'"
+              },
+              "ResponseTemplates": {
+                "application/json": ""
+              },
+              "StatusCode": "200"
+            }
+          ],
+          "PassthroughBehavior": "NEVER",
+          "RequestTemplates": {
+            "application/json": "{\"statusCode\": 200}"
+          }
+        },
+        "MethodResponses": [
+          {
+            "ResponseModels": {
+              "application/json": "Empty"
+            },
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Headers": true,
+              "method.response.header.Access-Control-Allow-Methods": true,
+              "method.response.header.Access-Control-Allow-Origin": true
+            },
+            "StatusCode": "200"
+          }
+        ]
+      }
+    },
+
+    "APIGatewayOptionsDefaultUserSettings": {
+      "Type": "AWS::ApiGateway::Method",
+      "DependsOn": [ "APIGatewayMethodPostDefaultUserSettings", "APIGatewayOptionsFileUploadAPI" ],
+      "Properties": {
+        "RestApiId": { "Ref": "APIGatewayRestAPI" },
+        "ResourceId": { "Ref": "APIGatewayResourceDefaultUserSettings" },
+        "AuthorizationType": "NONE",
+        "HttpMethod": "OPTIONS",
+        "Integration": {
+          "Type": "MOCK",
+          "IntegrationResponses": [
+            {
+              "ResponseParameters": {
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+                "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS'",
+                "method.response.header.Access-Control-Allow-Origin": "'*'"
+              },
+              "ResponseTemplates": {
+                "application/json": ""
+              },
+              "StatusCode": "200"
+            }
+          ],
+          "PassthroughBehavior": "NEVER",
+          "RequestTemplates": {
+            "application/json": "{\"statusCode\": 200}"
+          }
+        },
+        "MethodResponses": [
+          {
+            "ResponseModels": {
+              "application/json": "Empty"
+            },
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Headers": true,
+              "method.response.header.Access-Control-Allow-Methods": true,
+              "method.response.header.Access-Control-Allow-Origin": true
+            },
+            "StatusCode": "200"
+          }
+        ]
+      }
+    },
+
+    "APIGatewayOptionsWordsAPI": {
+      "Type": "AWS::ApiGateway::Method",
+      "DependsOn": [ "APIGatewayMethodPUTWordsAPI" ],
+      "Properties": {
+        "RestApiId": { "Ref": "APIGatewayRestAPI" },
+        "ResourceId": { "Ref": "APIGatewayResourceWordsAPI" },
+        "AuthorizationType": "NONE",
+        "HttpMethod": "OPTIONS",
+        "Integration": {
+          "Type": "MOCK",
+          "IntegrationResponses": [
+            {
+              "ResponseParameters": {
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+                "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS'",
+                "method.response.header.Access-Control-Allow-Origin": "'*'"
+              },
+              "ResponseTemplates": {
+                "application/json": ""
+              },
+              "StatusCode": "200"
+            }
+          ],
+          "PassthroughBehavior": "NEVER",
+          "RequestTemplates": {
+            "application/json": "{\"statusCode\": 200}"
+          }
+        },
+        "MethodResponses": [
+          {
+            "ResponseModels": {
+              "application/json": "Empty"
+            },
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Headers": true,
+              "method.response.header.Access-Control-Allow-Methods": true,
+              "method.response.header.Access-Control-Allow-Origin": true
+            },
+            "StatusCode": "200"
+          }
+        ]
+      }
+    },
+
+
+
+    "APIGatewayDeployment": {
+      "Type": "AWS::ApiGateway::Deployment",
+      "DependsOn": [ "APIGatewayOptionsFileUploadAPI", "APIGatewayOptionsDefaultUserSettings", "APIGatewayOptionsWordsAPI" ],
+      "Properties": {
+        "RestApiId": { "Ref": "APIGatewayRestAPI" },
+        "StageName": "prod"
+      }
+    },
+
+    "APIGatewayLambdaPermissionUploadXMLS3": {
+      "Type": "AWS::Lambda::Permission",
+      "DependsOn": [ "APIGatewayDeployment" ],
+      "Properties": {
+        "Action": "lambda:invokeFunction",
+        "Principal": "apigateway.amazonaws.com",
+        "FunctionName": { "Fn::GetAtt" : [ "LambdaUploadXMLS3", "Arn"] },
+        "SourceArn": {"Fn::Join": ["", 
+          ["arn:aws:execute-api:", {"Ref": "AWS::Region"}, ":", {"Ref": "AWS::AccountId"}, ":", {"Ref": "APIGatewayRestAPI"}, "/*"]
+        ]}
+      }
+    },
+
+    "APIGatewayLambdaPermissionLoadUserDefaultWords": {
+      "Type": "AWS::Lambda::Permission",
+      "DependsOn": [ "APIGatewayDeployment" ],
+      "Properties": {
+        "Action": "lambda:invokeFunction",
+        "Principal": "apigateway.amazonaws.com",
+        "FunctionName": { "Fn::GetAtt" : [ "LambdaLoadUserDefaultWords", "Arn"] },
+        "SourceArn": {"Fn::Join": ["", 
+          ["arn:aws:execute-api:", {"Ref": "AWS::Region"}, ":", {"Ref": "AWS::AccountId"}, ":", {"Ref": "APIGatewayRestAPI"}, "/*"]
+        ]}
+      }
+    },
+
+    "APIGatewayLambdaPermissionCrudWordDynamo": {
+      "Type": "AWS::Lambda::Permission",
+      "DependsOn": [ "APIGatewayDeployment" ],
+      "Properties": {
+        "Action": "lambda:invokeFunction",
+        "Principal": "apigateway.amazonaws.com",
+        "FunctionName": { "Fn::GetAtt" : [ "LambdaCrudWordDynamo", "Arn"] },
+        "SourceArn": {"Fn::Join": ["", 
+          ["arn:aws:execute-api:", {"Ref": "AWS::Region"}, ":", {"Ref": "AWS::AccountId"}, ":", {"Ref": "APIGatewayRestAPI"}, "/*"]
+        ]}
+      }
+    },
+
+
+
     "IAMRoleBasicLambda": {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -316,7 +843,7 @@
       }
     },
 
-    "IAMRoleLambdaFindSelectData" : {
+    "IAMRoleLambdaFindSelectData": {
       "Type": "AWS::IAM::Role",
       "Properties": {
 
@@ -334,30 +861,120 @@
         "ManagedPolicyArns": [
           "arn:aws:iam::aws:policy/AmazonSESFullAccess",
           "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+
+        "Policies": [
+          {
+            "PolicyName": "ScanDataDynamoDB",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:BatchGetItem",
+                    "dynamodb:GetItem",
+                    "dynamodb:Scan",
+                    "dynamodb:Query"
+                ],
+                  "Resource": { "Fn::GetAtt": [ "DynamoDBTable", "Arn" ] }
+                }
+
+              ]
+            }
+          }
         ]
       }
     },
 
+    "IAMRoleLoadUserDefaultWords": {
+      "Type": "AWS::IAM::Role",
+      "DependsOn": [ "DynamoDBTable" ],
+      "Properties": {
+
+        "RoleName": "LambdaUserDefaultWordsDynamoDb",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": { "Service": "lambda.amazonaws.com" },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+
+        "Policies": [
+          {
+            "PolicyName": "DynamoDBWriteAccess",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                
+                {
+                  "Effect": "Allow",
+                  "Action": [ "dynamodb:PutItem" ],
+                  "Resource": { "Fn::GetAtt": [ "DynamoDBTable", "Arn" ] }
+                }
+
+              ]
+            }
+          }
+        ]
+      }
+    },
+
+    "IAMRoleCrudDynamo": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+
+        "RoleName": "BidMachineCRUDWordsAPIDynamoLambdaRole",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": { "Service": "lambda.amazonaws.com" },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
+          "arn:aws:iam::aws:policy/AmazonSESFullAccess",
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ]
+      }
+    },
+
+
+
     "LambdaUpdateCognitoConfigS3CustomResources": {
       "Type": "Custom::S3CustomResource",
-      "DependsOn": [ "S3BucketWebApplication", "CognitoUserPoolClient" ],
+      "DependsOn": [ "S3BucketWebApplication", "CognitoUserPoolClient", "APIGatewayRestAPI" ],
       "Properties": { 
         "ServiceToken": { "Fn::GetAtt" : [ "LambdaUpdateCognitoConfigS3", "Arn"] },
         "UserPool": { "Ref": "CognitoUserPool" },
         "Client": { "Ref": "CognitoUserPoolClient" },
         "Region": { "Ref": "AWS::Region" },
         "Bucket": { "Ref": "BucketWebApplication" },
+        "invokeUrl": { "Fn::Sub": "https://${APIGatewayRestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod" },
         "filePath": "js/config.js"
       }
     },
 
     "LambdaUpdateCognitoConfigS3": {
       "Type": "AWS::Lambda::Function",
-      "DependsOn": [ "IAMRoleBasicLambda" ],
+      "DependsOn": [ "IAMRoleBasicLambda", "APIGatewayDeployment" ],
       "Properties": {
 
         "Description": "Update config.js file from web application bucket",
-        "FunctionName": "UpdateConfigS3WebFile",
+        "FunctionName": "UpdateConfigS3WebFile_test",
         "Handler": "index.lambda_handler",
         "Role": { "Fn::GetAtt" : ["IAMRoleBasicLambda", "Arn"] },
         "Timeout": 120,
@@ -377,10 +994,11 @@
             "   clientId = properties['Client']",
             "   region = properties['Region']",
             "   bucket = properties['Bucket']",
+            "   invokeUrl = properties['invokeUrl']",
             "   filePath = properties['filePath']\n",
 
-            "   config_content = \"\"\" var _config = { cognito: { userPoolId: %s, userPoolClientId: '%s', region: '%s' }, api: { invokeUrl: '' } } \"\"\" ",
-            "   config_content = config_content % (userPoolId, clientId, region)",
+            "   config_content = \"\"\" window._config = { cognito: { userPoolId: '%s', userPoolClientId: '%s', region: '%s' }, api: { invokeUrl: '%s' } } \"\"\" ",
+            "   config_content = config_content % (userPoolId, clientId, region, invokeUrl)",
             "   config = s3.Object(bucket,f'{filePath}')",
             "   config.put(Body=config_content)\n",
             "   return cfnresponse.SUCCESS, None\n",
@@ -421,6 +1039,8 @@
       }
     },
 
+
+
     "LambdaLayerRequests": {
       "Type": "AWS::Lambda::LayerVersion",
       "Properties": {
@@ -454,6 +1074,62 @@
       }
     },
 
+
+
+    "LambdaCrudWordDynamo": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [ "IAMRoleCrudDynamo", "LambdaLayerRequests" ],
+      "Properties": {
+
+        "Code": {
+          "S3Bucket" : { "Ref": "BucketLambdaCode" },
+          "S3Key": "lambda_code/crud_word_dynamo.zip"
+        },
+        
+        "FunctionName": "testCF_crud_word_dynamo",
+        "Description": "Lambda to load user default configurations",
+        "Handler": "lambda_function.lambda_handler",
+        "MemorySize": 128,
+        "Runtime": "python3.7",
+        "Role": { "Fn::GetAtt" : ["IAMRoleCrudDynamo", "Arn"] },
+
+        "Layers": [ { "Ref": "LambdaLayerRequests" } ],
+
+        "Environment": {
+          "Variables": {
+            "dynamoDbTable" : { "Ref": "DynamoDBTableName" }
+          }
+        }
+      }
+    },
+
+    "LambdaLoadUserDefaultWords": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [ "IAMRoleLoadUserDefaultWords", "LambdaLayerRequests" ],
+      "Properties": {
+
+        "Code": {
+          "S3Bucket" : { "Ref": "BucketLambdaCode" },
+          "S3Key": "lambda_code/loadUserDefaultWords.zip"
+        },
+        
+        "FunctionName": "testCF_loadUserDefaultWords",
+        "Description": "Lambda to load user default configurations",
+        "Handler": "lambda_function.lambda_handler",
+        "MemorySize": 128,
+        "Runtime": "python3.7",
+        "Role": { "Fn::GetAtt" : ["IAMRoleLoadUserDefaultWords", "Arn"] },
+
+        "Layers": [ { "Ref": "LambdaLayerRequests" } ],
+
+        "Environment": {
+          "Variables": {
+            "dynamoDbTable" : { "Ref": "DynamoDBTableName" }
+          }
+        }
+      }
+    },
+
     "LambdaUploadXMLS3" : {
       "Type": "AWS::Lambda::Function",
       "DependsOn": [ "IAMRoleBasicLambda", "LambdaLayerRequests" ],
@@ -471,7 +1147,12 @@
         "Runtime": "python3.7",
         "Role": { "Fn::GetAtt" : ["IAMRoleBasicLambda", "Arn"] },
 
-        "Layers": [ { "Ref": "LambdaLayerRequests" } ]
+        "Layers": [ { "Ref": "LambdaLayerRequests" } ],
+        "Environment": {
+          "Variables": {
+            "bucketData" : { "Ref": "BucketData" }
+          }
+        }
       }
       
     },
@@ -564,7 +1245,7 @@
       "Properties": {
         "Code": {
           "S3Bucket" : { "Ref": "BucketLambdaCode" },
-          "S3Key": { "Fn::Sub": "lambda_code/function1.zip" }
+          "S3Key": { "Fn::Sub": "lambda_code/findSelectData.zip" }
         },
         
         "FunctionName": "testCF_findSelectData",
@@ -575,7 +1256,13 @@
         "PackageType": "Zip",
         "Runtime": "python3.7",
         "Role": { "Fn::GetAtt" : ["IAMRoleLambdaFindSelectData", "Arn"] },
-        "Layers": [ { "Ref": "LambdaLayerRequests" }, { "Ref": "LambdaLayerDataWrangler" } ]
+        "Layers": [ { "Ref": "LambdaLayerRequests" }, { "Ref": "LambdaLayerDataWrangler" } ],
+
+        "Environment": {
+          "Variables": {
+            "dynamoDbTable" : { "Ref": "DynamoDBTableName" }
+          }
+        }
       }
     },
 
