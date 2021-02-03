@@ -2,6 +2,7 @@ import json
 import boto3 
 import awswrangler as wr
 import pandas as pd
+import os
 
 from collections import Counter
 from botocore.exceptions import ClientError
@@ -12,9 +13,11 @@ def getUserWords():
   print('GetUserWords')
     
   try:
+
+    tableName = os.environ[ 'dynamoDbTable' ]
     
     dynamodb = boto3.resource( 'dynamodb' )
-    table = dynamodb.Table('BidMachineItems')
+    table = dynamodb.Table( tableName )
       
     response = table.scan( FilterExpression = Attr( 'word' ).exists() )
     data = response['Items']
@@ -52,13 +55,16 @@ def searchUserWords( users, df ):
 
 def getAdditionalEmailInfo( df ):
 
-  data = { 'orgao': [], 'linkEdital': [] }
+  data = { 'orgao': [], 'linkEdital': [], 'objeto': [] }
 
   for row in df['orgao']:
     data['orgao'].append( row )
 
   for row in df['links']:
     data['linkEdital'].append( row )
+    
+  for row in df['objeto']:
+    data['objeto'].append( row )
 
   return data
 
@@ -94,6 +100,7 @@ def sendNotification( event, dictFoundWords, additionalEmailInfo ):
     words = ''
     orgaoLicitante = ''
     linkEdital = ''
+    objeto = ''
     
     for item in wordsCounter:
       words += f'<li>{ item[0] }: { item[1] } vez(es).</li>'
@@ -103,7 +110,10 @@ def sendNotification( event, dictFoundWords, additionalEmailInfo ):
       
       
     for link in additionalEmailInfo['linkEdital']:
-      linkEdital += f'<li>{link}</li>'
+      linkEdital += f'<li>{ link }</li>'
+
+    for obj in additionalEmailInfo['objeto']:
+      objeto += f'<li>{ ojb }</li>'
       
       
     bodyHtml = f"""<!DOCTYPE html>
@@ -121,6 +131,11 @@ def sendNotification( event, dictFoundWords, additionalEmailInfo ):
     <h4>Órgão Licitante:</h4>
     <ul>
       { orgaoLicitante }
+    </ul>
+
+    <h4>Objeto da Licitação:</h4>
+    <ul>
+      { objeto }
     </ul>
     
     <h4>Link do Edital:</h4>
