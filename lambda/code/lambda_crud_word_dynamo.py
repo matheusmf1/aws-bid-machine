@@ -2,11 +2,14 @@ import json
 import boto3
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key, Attr
+import os
 
 import uuid
 
+tableName = os.environ[ 'dynamoDbTable' ]
+
 dynamodb = boto3.resource( 'dynamodb' )
-table = dynamodb.Table('BidMachineItems')
+table = dynamodb.Table( tableName )
 
 def putData( event ):
     print('PutData')

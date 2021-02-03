@@ -1,6 +1,7 @@
 import json
 import base64
 import boto3
+import os
 
 def lambda_handler(event, context):
     
@@ -24,7 +25,7 @@ def lambda_handler(event, context):
     fileName = temp[1].split( '"' )[1]
     
     destinationFolder = 'XML/'
-    bucketName = "rhs-xml-test"
+    bucketName = os.environ[ 'bucketData' ]
     
     client = boto3.client('s3')
     
