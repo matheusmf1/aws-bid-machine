@@ -113,7 +113,7 @@ def sendNotification( event, dictFoundWords, additionalEmailInfo ):
       linkEdital += f'<li>{ link }</li>'
 
     for obj in additionalEmailInfo['objeto']:
-      objeto += f'<li>{ ojb }</li>'
+      objeto += f'<li>{ obj }</li>'
       
       
     bodyHtml = f"""<!DOCTYPE html>
