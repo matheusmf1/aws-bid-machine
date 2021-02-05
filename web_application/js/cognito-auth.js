@@ -6,6 +6,9 @@ var BidMachine = window.BidMachine || {};
     const homeUrl = '../html/home.html';
     const verifyUrl = '../html/verify.html';
 
+    if ( !window._config )
+        alert("Error js/config.js file missing, check the S3 Web Application Bucket for the file");
+
     const poolData = {
         UserPoolId: _config.cognito.userPoolId,
         ClientId: _config.cognito.userPoolClientId
