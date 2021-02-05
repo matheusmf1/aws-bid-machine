@@ -31,7 +31,7 @@
     "DynamoDBTableName": {
       "Description": "DynamoDB's table name",
       "Type": "String",
-      "Default": "BidMachineItens2"
+      "Default": "BidMachineItens"
     }
     
   },
@@ -160,14 +160,16 @@
 
     "S3PutObjectFunction": {
       "Type": "AWS::Lambda::Function",
-      "DependsOn": [ "IAMRoleBasicLambda", "S3BucketData" ],
+      "DependsOn": [ "IAMRoleBasicLambda", "S3BucketData", "LambdaLayerRequests" ],
       "Properties": {
         "Description": "Create dirs into this S3 Bucket",
-        "FunctionName": "testCF_S3CreateBucketDirs",
+        "FunctionName": "BidMachine_S3CreateBucketDirs",
         "Handler": "index.lambda_handler",
         "Role": { "Fn::GetAtt" : ["IAMRoleBasicLambda", "Arn"] },
         "Timeout": 360,
         "Runtime": "python3.7",
+
+        "Layers": [ { "Ref": "LambdaLayerRequests" } ],
 
         "Code": {
           "ZipFile": { "Fn::Join" : ["\n", [
@@ -257,10 +259,12 @@
       }
     },
 
+
+
     "CognitoUserPool": {
       "Type": "AWS::Cognito::UserPool",
       "Properties": {
-        "UserPoolName": "BidMachine",
+        "UserPoolName": "BidMachineCognito",
         "AliasAttributes": [ "email" ],
         "AutoVerifiedAttributes": [ "email" ]
       }
@@ -270,7 +274,7 @@
       "Type": "AWS::Cognito::UserPoolClient",
       "DependsOn": "CognitoUserPool",
       "Properties": {
-        "ClientName" : "BidMachineApp",
+        "ClientName" : "BidMachineApplication",
         "UserPoolId": { "Ref": "CognitoUserPool" },
         "GenerateSecret": false
       }
@@ -306,7 +310,7 @@
     "APIGatewayRestAPI": {
       "Type": "AWS::ApiGateway::RestApi",
       "Properties": {
-        "Name": "BidMachineAPI2",
+        "Name": "BidMachineRestAPI",
         "Description": "This API was created to attend BidMachine calls",
         "EndpointConfiguration":{
           "Types": [ "REGIONAL" ]
@@ -350,7 +354,7 @@
       "DependsOn": [ "CognitoUserPool", "APIGatewayResourceFileUploadApi" ],
       "Properties": {
         "Type": "COGNITO_USER_POOLS",
-        "Name": "testAPICognitoAuth",
+        "Name": "BidMachineAPICognitoAuthorizer",
         "IdentitySource": "method.request.header.Authorization",
         "ProviderARNs": [ { "Fn::GetAtt": ["CognitoUserPool", "Arn"] }],
         "RestApiId": { "Ref": "APIGatewayRestAPI" }
@@ -974,7 +978,7 @@
       "Properties": {
 
         "Description": "Update config.js file from web application bucket",
-        "FunctionName": "UpdateConfigS3WebFile_test",
+        "FunctionName": "BidMachine_UpdateConfigS3WebFile",
         "Handler": "index.lambda_handler",
         "Role": { "Fn::GetAtt" : ["IAMRoleBasicLambda", "Arn"] },
         "Timeout": 120,
@@ -1086,7 +1090,7 @@
           "S3Key": "lambda_code/crud_word_dynamo.zip"
         },
         
-        "FunctionName": "testCF_crud_word_dynamo",
+        "FunctionName": "BidMachine_crud_word_dynamo",
         "Description": "Lambda to load user default configurations",
         "Handler": "lambda_function.lambda_handler",
         "MemorySize": 128,
@@ -1113,7 +1117,7 @@
           "S3Key": "lambda_code/loadUserDefaultWords.zip"
         },
         
-        "FunctionName": "testCF_loadUserDefaultWords",
+        "FunctionName": "BidMachine_loadUserDefaultWords",
         "Description": "Lambda to load user default configurations",
         "Handler": "lambda_function.lambda_handler",
         "MemorySize": 128,
@@ -1140,7 +1144,7 @@
           "S3Key": "lambda_code/upload_xml_s3.zip"
         },
         
-        "FunctionName": "testCF_upload_xml_s3",
+        "FunctionName": "BidMachine_upload_xml_s3",
         "Description": "Lambda to upload XML to S3",
         "Handler": "lambda_function.lambda_handler",
         "MemorySize": 128,
@@ -1167,7 +1171,7 @@
           "S3Key": { "Fn::Sub": "lambda_code/xml_dict.zip" }
         },
         
-        "FunctionName": "testCF_xmlToDict",
+        "FunctionName": "BidMachine_xmlToDict",
         "Description": "Lambda to convert XML to JSON",
         "Handler": "lambda_function.lambda_handler",
         "MemorySize": 128,
@@ -1189,7 +1193,7 @@
           "S3Key": { "Fn::Sub": "lambda_code/upload_dict_s3.zip" }
         },
         
-        "FunctionName": "testCF_upload_dict_s3",
+        "FunctionName": "BidMachine_upload_dict_s3",
         "Description": "Lambda to upload converted XML to JSON into S3 bucket",
         "Handler": "lambda_function.lambda_handler",
         "MemorySize": 128,
@@ -1227,7 +1231,7 @@
           "S3Key": { "Fn::Sub": "lambda_code/refineData.zip" }
         },
         
-        "FunctionName": "testCF_refineData",
+        "FunctionName": "BidMachine_refineData",
         "Description": "Lambda to manipulate data as dataframe from JSON",
         "Handler": "lambda_function.lambda_handler",
         "MemorySize": 128,
@@ -1248,7 +1252,7 @@
           "S3Key": { "Fn::Sub": "lambda_code/findSelectData.zip" }
         },
         
-        "FunctionName": "testCF_findSelectData",
+        "FunctionName": "BidMachine_findSelectData",
         "Description": "Lambda to match user data with the JSON",
         "Handler": "lambda_function.lambda_handler",
         "MemorySize": 128,
